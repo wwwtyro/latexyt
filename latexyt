@@ -1,0 +1,151 @@
+#!/usr/bin/env python
+
+# latexyt by Rye Terrell in 2010.
+# NO COPYRIGHT. NO LICENSE. Do whatever you want with this series of bits.
+
+# TODO: 
+# - symbol pallete
+# - window resize
+# - text window scrolling
+# - comment code
+
+
+
+
+import poppler
+import tempfile
+import shutil
+import os
+import commands
+import gtk
+import threading
+import gobject
+import time
+
+
+class Latexyt:
+    
+    def __init__(self):
+        self.tempDir = tempfile.mkdtemp()
+        os.chdir(self.tempDir)
+        self.window = gtk.Window()
+        self.window.set_title("latexyt")
+        self.window.set_size_request(384,512)
+        self.window.set_resizable(False)
+        self.window.connect('destroy', self.onClose)
+        color = gtk.gdk.color_parse('#FFFFFF')
+        self.window.modify_bg(gtk.STATE_NORMAL, color)
+
+        vbox = gtk.VBox()
+
+        self.latex = gtk.TextView()
+        self.latex.set_editable(True)
+        self.latex.set_wrap_mode(gtk.WRAP_WORD)
+
+        self.buffer = self.latex.get_buffer()
+
+        self.pdf = gtk.Image()
+        self.window.connect("drag_data_get", self.dndCallback)
+        self.window.drag_source_set(gtk.gdk.BUTTON1_MASK, [('text/uri-list', 0, 80)] , gtk.gdk.ACTION_COPY)
+
+        gobject.idle_add(self.updatePdf)
+
+        vbox.pack_start(self.pdf, expand = False)
+        vbox.pack_start(gtk.HSeparator(), expand = False)
+        vbox.pack_start(self.latex, expand = False)
+        self.window.add(vbox)
+        self.window.show_all()
+        self.renderThread = None
+        self.lastTex = None
+
+
+
+    def dndCallback(self, widget, context, selection, targetType, eventTime):
+        if targetType == 80:
+            selection.set(selection.target, 8, "file://" + os.path.join(self.tempDir, "temp-crop.pdf"))
+
+
+    def getTex(self):
+        buf = self.latex.get_buffer()
+        return buf.get_text(*buf.get_bounds())
+
+
+    def updatePdf(self):
+    
+        def renderFunction():
+            prefix = "\\documentclass{article}\n\\pagestyle{empty}\n\\begin{document}\n\\[\n"
+            suffix = "\\]\n\\end{document}"
+            f = open(os.path.join(self.tempDir, "temp.tex"), 'w')
+            f.write(prefix)
+            f.write(self.lastTex)
+            f.write(suffix)
+            f.close()
+            commands.getoutput("pdflatex -halt-on-error temp.tex; pdfcrop temp.pdf")
+            doc = poppler.document_new_from_file("file://" + os.path.join(self.tempDir, "temp-crop.pdf"), password = None)
+            page = doc.get_page(0)
+            scale = min(384.0 / page.get_size()[0], 256.0 / page.get_size()[1])
+            pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, True, 8, int(page.get_size()[0] * scale), int(page.get_size()[1] * scale))
+            pixbuf.fill(0xFFFFFFFF)
+            page.render_to_pixbuf(src_x = 0, 
+                                  src_y = 0, 
+                                  src_width = int(page.get_size()[0]), 
+                                  src_height = int(page.get_size()[1]), 
+                                  scale = scale, 
+                                  rotation = 0, 
+                                  pixbuf = pixbuf)
+            scpixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, True, 8, 384, 256)
+            scpixbuf.fill(0xFFFFFFFF)
+            pixbuf.copy_area(0, 0, 
+                             int(page.get_size()[0] * scale), int(page.get_size()[1] * scale), 
+                             scpixbuf, 
+                             192 - int(0.5 * page.get_size()[0] * scale), 
+                             128 - int(0.5 * page.get_size()[1] * scale))
+            self.pdf.set_from_pixbuf(scpixbuf)
+        
+        if self.renderThread is None:
+            self.renderThread = threading.Thread(target = renderFunction)
+
+        if not self.renderThread.isAlive():
+            if self.lastTex != self.getTex():
+                self.lastTex = self.getTex()
+                self.renderThread = threading.Thread(target = renderFunction)
+                self.renderThread.daemon = True
+                self.renderThread.start()
+
+        time.sleep(0.01)        
+
+        return True
+    
+    
+    def onClose(self, widget):
+        shutil.rmtree(self.tempDir)
+        gtk.main_quit()
+
+
+
+# ==============================================================================================
+# Main
+if __name__ == "__main__":
+    import sys
+    if os.system("which pdflatex > /dev/null"):
+        print "It looks like you don't have pdflatex installed. Aborting."
+        sys.exit()
+    if os.system("which pdfcrop > /dev/null"):
+        print "It looks like you don't have pdfcrop installed. Aborting."
+        sys.exit()
+    lyt = Latexyt()
+    gtk.main()
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
