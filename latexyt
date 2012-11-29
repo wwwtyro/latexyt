@@ -127,10 +127,10 @@ class Latexyt:
 # Main
 if __name__ == "__main__":
     import sys
-    if os.system("which pdflatex > /dev/null"):
+    if os.system("which pdflatex &> /dev/null"):
         print "It looks like you don't have pdflatex installed. Aborting."
         sys.exit()
-    if os.system("which pdfcrop > /dev/null"):
+    if os.system("which pdfcrop &> /dev/null"):
         print "It looks like you don't have pdfcrop installed. Aborting."
         sys.exit()
     lyt = Latexyt()
