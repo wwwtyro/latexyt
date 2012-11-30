@@ -3,7 +3,7 @@
 # latexyt by Rye Terrell in 2010.
 # NO COPYRIGHT. NO LICENSE. Do whatever you want with this series of bits.
 
-# TODO: 
+# TODO:
 # - symbol pallete
 # - window resize
 # - text window scrolling
@@ -24,7 +24,7 @@ import time
 
 
 class Latexyt:
-    
+
     def __init__(self):
         self.tempDir = tempfile.mkdtemp()
         os.chdir(self.tempDir)
@@ -71,7 +71,7 @@ class Latexyt:
 
 
     def updatePdf(self):
-    
+
         def renderFunction():
             prefix = "\\documentclass{article}\n\\pagestyle{empty}\n\\begin{document}\n\\[\n"
             suffix = "\\]\n\\end{document}"
@@ -86,22 +86,31 @@ class Latexyt:
             scale = min(384.0 / page.get_size()[0], 256.0 / page.get_size()[1])
             pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, True, 8, int(page.get_size()[0] * scale), int(page.get_size()[1] * scale))
             pixbuf.fill(0xFFFFFFFF)
-            page.render_to_pixbuf(src_x = 0, 
-                                  src_y = 0, 
-                                  src_width = int(page.get_size()[0]), 
-                                  src_height = int(page.get_size()[1]), 
-                                  scale = scale, 
-                                  rotation = 0, 
-                                  pixbuf = pixbuf)
+
+            pw = int(page.get_size()[0])
+            ph = int(page.get_size()[1])
+            ww = int(page.get_size()[0] * scale)
+            hh = int(page.get_size()[1] * scale)
+
+            pixmap = gtk.gdk.Pixmap(None, ww, hh, 24)
+            cr = pixmap.cairo_create()
+            cr.set_source_rgb(1, 1, 1)
+            cr.scale(scale, scale)
+            cr.rectangle(0, 0, pw, ph)
+            cr.fill()
+            page.render(cr)
+
+            pixbuf.get_from_drawable(pixmap, gtk.gdk.colormap_get_system(), 0, 0, 0, 0, ww, hh)
+
             scpixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, True, 8, 384, 256)
             scpixbuf.fill(0xFFFFFFFF)
-            pixbuf.copy_area(0, 0, 
-                             int(page.get_size()[0] * scale), int(page.get_size()[1] * scale), 
-                             scpixbuf, 
-                             192 - int(0.5 * page.get_size()[0] * scale), 
+            pixbuf.copy_area(0, 0,
+                             int(page.get_size()[0] * scale), int(page.get_size()[1] * scale),
+                             scpixbuf,
+                             192 - int(0.5 * page.get_size()[0] * scale),
                              128 - int(0.5 * page.get_size()[1] * scale))
             self.pdf.set_from_pixbuf(scpixbuf)
-        
+
         if self.renderThread is None:
             self.renderThread = threading.Thread(target = renderFunction)
 
@@ -112,11 +121,11 @@ class Latexyt:
                 self.renderThread.daemon = True
                 self.renderThread.start()
 
-        time.sleep(0.01)        
+        time.sleep(0.01)
 
         return True
-    
-    
+
+
     def onClose(self, widget):
         shutil.rmtree(self.tempDir)
         gtk.main_quit()
@@ -135,17 +144,17 @@ if __name__ == "__main__":
         sys.exit()
     lyt = Latexyt()
     gtk.main()
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
